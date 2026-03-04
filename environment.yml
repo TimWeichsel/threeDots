@@ -1,0 +1,53 @@
+name: threedots
+channels:
+  - defaults
+dependencies:
+  - blas=1.0=mkl
+  - bottleneck=1.4.2=py311h9b7fc35_0
+  - bzip2=1.0.8=h6c40b1e_6
+  - ca-certificates=2025.7.15=hecd8cb5_0
+  - cloudpickle=3.1.1=py311hecd8cb5_0
+  - expat=2.7.1=h6d0c2b6_0
+  - farama-notifications=0.0.4=py311hecd8cb5_0
+  - gymnasium=0.28.1=py311hecd8cb5_1
+  - iniconfig=2.1.0=py311hecd8cb5_0
+  - intel-openmp=2023.1.0=ha357a0b_43548
+  - jax-jumpy=1.0.0=py311hecd8cb5_0
+  - libcxx=19.1.7=haebbb44_3
+  - libffi=3.4.4=hecd8cb5_1
+  - libgfortran=5.0.0=11_3_0_hecd8cb5_28
+  - libgfortran5=11.3.0=h9dfd629_28
+  - libopenblas=0.3.29=h3f8574a_0
+  - llvm-openmp=19.1.7=h5048363_2
+  - mkl=2023.1.0=h8e150cf_43560
+  - mkl-service=2.4.0=py311h46256e1_2
+  - mkl_fft=1.3.8=py311h6c40b1e_0
+  - mkl_random=1.2.4=py311ha357a0b_0
+  - ncurses=6.5=h923df54_0
+  - numexpr=2.8.7=py311h728a8a3_0
+  - numpy=1.26.4=py311h728a8a3_0
+  - numpy-base=1.26.4=py311h53bf9ac_0
+  - openssl=3.0.17=hee2dfae_0
+  - packaging=25.0=py311hecd8cb5_0
+  - pandas=2.3.1=py311hebe84f7_0
+  - pip=26.0.1=pyhc872135_0
+  - pluggy=1.5.0=py311hecd8cb5_0
+  - pygments=2.19.1=py311hecd8cb5_0
+  - pytest=8.4.1=py311hecd8cb5_0
+  - python=3.11.13=hbff2529_0
+  - python-dateutil=2.9.0post0=py311hecd8cb5_2
+  - python-tzdata=2025.3=pyhd3eb1b0_0
+  - pytz=2025.2=py311hecd8cb5_0
+  - readline=8.3=h49f2429_0
+  - setuptools=78.1.1=py311hecd8cb5_0
+  - six=1.17.0=py311hecd8cb5_0
+  - sqlite=3.50.2=hc8b0dd6_1
+  - tbb=2021.8.0=ha357a0b_0
+  - tk=8.6.15=h3a5a201_0
+  - typing-extensions=4.12.2=py311hecd8cb5_0
+  - typing_extensions=4.12.2=py311hecd8cb5_0
+  - tzdata=2025c=he532380_0
+  - wheel=0.45.1=py311hecd8cb5_0
+  - xz=5.6.4=h46256e1_1
+  - zlib=1.2.13=h4b97444_1
+prefix: /Users/timweichsel/anaconda3/envs/threedots
