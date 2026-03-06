@@ -107,7 +107,7 @@ class MyEnv(gym.Env[np.ndarray, int]): #ObsType is array of 36 integers, ActType
 
 
 
-    def step(self, action: spaces.ActType):
+    def step(self, action: int):
         #check if action is valid
         if action not in self.valid_actions():
             observation = self.board.copy()
