@@ -1,11 +1,10 @@
 import gymnasium as gym
-from gymnasium import spaces
 from typing import Optional
 import numpy as np
 
 class MyEnv(gym.Env[np.ndarray, int]): #ObsType is array of 36 integers, ActType is index of action from 0 to 36
     # Define playfield of 6x6 with 36 possible actions
-    def __init__(self, obstacle_num=4):
+    def __init__(self, render_mode="human", obstacle_num=4):
         self.action_space = gym.spaces.Discrete(36)
         self.observation_space = gym.spaces.Box(low=-1, high=2, shape=(36,), dtype=np.int8)
         self.obstacle_default = obstacle_num
@@ -13,6 +12,7 @@ class MyEnv(gym.Env[np.ndarray, int]): #ObsType is array of 36 integers, ActType
         self.current_player = None
         self.current_score = {"-1": 0, "1": 0}
         self.current_score_positions = {"-1":[], "1": []} 
+        self.render_mode = render_mode
         # determine truncated as always False (no time limit or other limitation)
         self.truncated = False
 
@@ -32,8 +32,7 @@ class MyEnv(gym.Env[np.ndarray, int]): #ObsType is array of 36 integers, ActType
         self.current_score_positions = {"-1":[], "1": []} 
 
         observation = self.board.copy()
-        info = {"current_player": self.current_player, "valid_actions": self.valid_actions()} 
-        return observation, info
+        return observation, self._current_info()
     
     def _action_to_coordinates(self, action: int) -> tuple:
         row = action // 6 #int division for row
@@ -146,4 +145,15 @@ class MyEnv(gym.Env[np.ndarray, int]): #ObsType is array of 36 integers, ActType
 
         return observation, reward, terminated, self.truncated, info
 
-        
+    def render (self):
+        if self.render_mode == "human":
+            for field_index in range(len(self.board)):
+                if field_index % 6 == 0 and field_index != 0:
+                    print()
+                match self.board[field_index]:
+                    case 1: print(" X ", end="")
+                    case -1: print(" O ", end="")
+                    case 0: print(" _ ", end="")
+                    case 2: print(" # ", end="")
+        else:
+            raise NotImplementedError("Render mode not implemented yet")
