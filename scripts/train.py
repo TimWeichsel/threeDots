@@ -31,6 +31,7 @@ for episode in range(episodes):
     for step in range(36-obstacle_num):
         print()
         print(f"Step {step}:")
+        
         if not terminated:
             
             current_agent_info = info["current_player"]
@@ -56,7 +57,7 @@ for episode in range(episodes):
             prev_info[current_agent_info] = info
             
             print(f"- Reward: {reward}")
-            print(f"- Termination: {terminated}")
+            print(f"- Terminated: {terminated}")
             
             score = info["current_score"]
             print(f"score: {score}")
@@ -64,29 +65,27 @@ for episode in range(episodes):
             print()
             prev_agent = current_agent_info
 
-        else: #Game Ends
 
-            score = info["current_score"]
-            winner = 1 if score["1"] > score["-1"] else -1 if score["-1"] > score["1"] else 0
+    print("")
+    score = info["current_score"]
+    winner = 1 if score["1"] > score["-1"] else -1 if score["-1"] > score["1"] else 0
 
-            if prev_agent == 1 and winner == 1:
-                agent1.update(observation, prev_action[1], prev_reward[1], terminated, prev_info[1])
-                agent2.update(observation, prev_action[-1], prev_reward[-1]-100, terminated, prev_info[-1]) #agent2 looses
-            if prev_agent == 1 and winner == -1:
-                agent1.update(observation, prev_action[1], prev_reward[1], terminated, prev_info[1])
-                agent2.update(observation, prev_action[-1], prev_reward[-1]+100, terminated, prev_info[-1]) #agent2 wins
-            if prev_agent == -1 and winner == 1:
-                agent1.update(observation, prev_action[1], prev_reward[1]+100, terminated, prev_info[1]) #agent1 wins
-                agent2.update(observation, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
-            if prev_agent == -1 and winner == -1:
-                agent1.update(observation, prev_action[1], prev_reward[1]-100, terminated, prev_info[1]) #agent1 looses
-                agent2.update(observation, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
-
-            if winner == 0:  # Draw
-                agent1.update(observation, prev_action[1], prev_reward[1], terminated, prev_info[1])
-                agent2.update(observation, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
-            
-            print(f"Final score: {score}")
-            break
+    if prev_agent == 1 and winner == 1:
+        agent1.update(observation, prev_action[1], prev_reward[1], terminated, prev_info[1])
+        agent2.update(observation, prev_action[-1], prev_reward[-1]-100, terminated, prev_info[-1]) #agent2 looses
+    if prev_agent == 1 and winner == -1:
+        agent1.update(observation, prev_action[1], prev_reward[1], terminated, prev_info[1])
+        agent2.update(observation, prev_action[-1], prev_reward[-1]+100, terminated, prev_info[-1]) #agent2 wins
+    if prev_agent == -1 and winner == 1:
+        agent1.update(observation, prev_action[1], prev_reward[1]+100, terminated, prev_info[1]) #agent1 wins
+        agent2.update(observation, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
+    if prev_agent == -1 and winner == -1:
+        agent1.update(observation, prev_action[1], prev_reward[1]-100, terminated, prev_info[1]) #agent1 looses
+        agent2.update(observation, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
+    if winner == 0:  # Draw
+        agent1.update(observation, prev_action[1], prev_reward[1], terminated, prev_info[1])
+        agent2.update(observation, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
+    print(f"Final score: {score}, Winner: {winner}")     
+    
                 
     
