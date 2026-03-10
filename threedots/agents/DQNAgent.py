@@ -10,7 +10,12 @@ class DQNAgent:
 
     def act(self, observation: np.ndarray, info: dict) -> int:
         valid_actions = info["valid_actions"]
-        pass
+        if np.random.rand() < self.epsilon:
+            return np.random.choice(valid_actions)
+        else:
+            pass
+
+
     
     def update(self, observation: np.ndarray, action: int, reward: int, terminated: bool, info: dict):
         pass
