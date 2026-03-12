@@ -1,5 +1,7 @@
 import gymnasium as gym
 import numpy as np
+import torch
+import torch.nn as nn
 from collections import deque #buffer for action history
 
 class DQNAgent:
@@ -9,7 +11,19 @@ class DQNAgent:
         self.epsilon_decay = epsilon_decay
         self.final_epsilon = final_epsilon
         self.buffer = deque(maxlen=10000)
-        self.last_observation = None #geet from update only the current observation
+        self.last_observation = None #get from update only the current observation
+
+        #define the q network architecture
+        self.q_net = nn.Sequential(
+            nn.Linear(36, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, 36),
+        )
+
+        self.optimizer = torch.optim.Adam(self.q_net.parameters(), lr=learning_rate)
+
 
     def act(self, observation: np.ndarray, info: dict) -> int:
         self.last_observation = observation #safe observation as buffer needs observation and last obersvation
@@ -18,7 +32,20 @@ class DQNAgent:
             action = np.random.choice(valid_actions)
             return action
         else:
-            pass
+            with torch.no_grad(): #No graph needed for action selection
+
+                board_tensor = torch.tensor(observation, dtype=torch.float32)
+
+                #forward pass with current board
+                q_values = self.q_net(board_tensor)
+
+                #get the highest q value for valid actions
+                valid_actions_np = np.array(valid_actions) #get valid indizes as numpy array since pytorch doesn't support python list
+                valid_q_values = q_values[valid_actions_np] #filter q values with valid action 
+                best_q_index = valid_q_values.argmax().item() #get highest q value for a valid avtion as index (with item())
+                return valid_actions[best_q_index] #return valid action with highest q value
+
+                
 
 
     
