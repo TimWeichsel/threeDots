@@ -3,14 +3,16 @@ import numpy as np
 import torch
 import torch.nn as nn
 from collections import deque #buffer for action history
+import random
 
 class DQNAgent:
-    def __init__(self, env: gym.Env, learning_rate: float, initial_epsilon: float,epsilon_decay: float,final_epsilon: float):
+    def __init__(self, env: gym.Env, learning_rate: float, initial_epsilon: float,epsilon_decay: float,final_epsilon: float, buffer_maxlen:int = 10000):
         self.env = env
         self.epsilon = initial_epsilon
         self.epsilon_decay = epsilon_decay
         self.final_epsilon = final_epsilon
-        self.buffer = deque(maxlen=10000)
+        self.buffer_maxlen = buffer_maxlen
+        self.buffer = deque(maxlen=buffer_maxlen)
         self.last_observation = None #get from update only the current observation
 
         #define the q network architecture
@@ -21,7 +23,6 @@ class DQNAgent:
             nn.ReLU(),
             nn.Linear(128, 36),
         )
-
         self.optimizer = torch.optim.Adam(self.q_net.parameters(), lr=learning_rate)
 
 
@@ -50,11 +51,11 @@ class DQNAgent:
 
     
     def update(self, next_observation: np.ndarray, action: int, reward: int, terminated: bool, info: dict):
-
-
-
         self.buffer.append((self.last_observation, action, reward, next_observation, terminated))
-        pass
-
+        if len(self.buffer) < 1000:
+            return #training with experience replay, when buffer has 1000 samples
+        else:
+            batches = np.random.choice(self.buffer, size=32, replace= False) #32 random samples of buffer (no deletion since buffer is deque with maxlen)
+            last_observations, actions, rewards, next_observations, terminations = zip(*batches)
     def decay_epsilon(self):
         self.epsilon = max(self.final_epsilon, self.epsilon - self.epsilon_decay)
