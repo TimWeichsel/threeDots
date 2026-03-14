@@ -6,12 +6,13 @@ from collections import deque #buffer for action history
 import random
 
 class DQNAgent:
-    def __init__(self, env: gym.Env, learning_rate: float, initial_epsilon: float,epsilon_decay: float,final_epsilon: float, buffer_maxlen:int = 10000):
+    def __init__(self, env: gym.Env, learning_rate: float, initial_epsilon: float,epsilon_decay: float,final_epsilon: float, buffer_maxlen:int = 10000, batch_size: int = 32):
         self.env = env
         self.epsilon = initial_epsilon
         self.epsilon_decay = epsilon_decay
         self.final_epsilon = final_epsilon
         self.buffer_maxlen = buffer_maxlen
+        self.batch_size = batch_size
         self.buffer = deque(maxlen=buffer_maxlen)
         self.last_observation = None #get from update only the current observation
 
@@ -55,7 +56,24 @@ class DQNAgent:
         if len(self.buffer) < 1000:
             return #training with experience replay, when buffer has 1000 samples
         else:
-            batches = np.random.choice(self.buffer, size=32, replace= False) #32 random samples of buffer (no deletion since buffer is deque with maxlen)
-            last_observations, actions, rewards, next_observations, terminations = zip(*batches)
+            batches = np.random.choice(self.buffer, size= self.batch_size , replace= False) #32 random samples of buffer (no deletion since buffer is deque with maxlen)
+            last_observations_array_tuple, actions, rewards, next_observations_array_tuple, terminations = zip(*batches)
+
+            #convert to types compatible with pytorch tensors
+            last_observations = np.array(last_observations_array_tuple)
+            next_observations = np.array(next_observations_array_tuple)
+
+            #convert to tensors
+            last_obersvation_tensor = torch.tensor(last_observations, dtype=torch.float32)
+            actions_tensor = torch.tensor(actions, dtype=torch.int)
+            rewards_tensor = torch.tensor(rewards, dtype=torch.float32)
+            next_obersvation_tensor = torch.tensor(next_observations, dtype=torch.float32)
+            terminations_tensor = torch.tensor(terminations, dtype=torch.float32)
+
+            #get q values
+            q_values = self.q_net(last_observations) #q values of board before action was played for all batches
+            q_values_played = q_values[range(self.batch_size), actions_tensor]  #extrat only q values played
+
+
     def decay_epsilon(self):
         self.epsilon = max(self.final_epsilon, self.epsilon - self.epsilon_decay)
