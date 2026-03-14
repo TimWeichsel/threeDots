@@ -6,11 +6,12 @@ from collections import deque #buffer for action history
 import random
 
 class DQNAgent:
-    def __init__(self, env: gym.Env, learning_rate: float, initial_epsilon: float,epsilon_decay: float,final_epsilon: float, buffer_maxlen:int = 10000, batch_size: int = 32):
+    def __init__(self, env: gym.Env, learning_rate: float, initial_epsilon: float,epsilon_decay: float,final_epsilon: float, buffer_maxlen:int = 10000, batch_size: int = 32, gamma: float = 0.99):
         self.env = env
         self.epsilon = initial_epsilon
         self.epsilon_decay = epsilon_decay
         self.final_epsilon = final_epsilon
+        self.gamma = gamma
         self.buffer_maxlen = buffer_maxlen
         self.batch_size = batch_size
         self.buffer = deque(maxlen=buffer_maxlen)
@@ -49,14 +50,17 @@ class DQNAgent:
 
                 
 
-
+    def _calculate_bellman_for_batches(self, rewards: torch.tensor, max_predicted_q_values: torch.tensor, terminationed_games_tensor: torch.tensor, gamma: float = None ) -> torch.tensor:
+        if gamma is None:
+            gamma = self.gamma
+        return rewards + gamma * max_predicted_q_values * (1-terminationed_games_tensor) #only value future if game is not terminated
     
     def update(self, next_observation: np.ndarray, action: int, reward: int, terminated: bool, info: dict):
         self.buffer.append((self.last_observation, action, reward, next_observation, terminated))
         if len(self.buffer) < 1000:
             return #training with experience replay, when buffer has 1000 samples
         else:
-            batches = np.random.choice(self.buffer, size= self.batch_size , replace= False) #32 random samples of buffer (no deletion since buffer is deque with maxlen)
+            batches = random.sample(self.buffer, self.batch_size) #32 random samples of buffer (no deletion since buffer is deque with maxlen)
             last_observations_array_tuple, actions, rewards, next_observations_array_tuple, terminations = zip(*batches)
 
             #convert to types compatible with pytorch tensors
@@ -65,14 +69,31 @@ class DQNAgent:
 
             #convert to tensors
             last_obersvation_tensor = torch.tensor(last_observations, dtype=torch.float32)
-            actions_tensor = torch.tensor(actions, dtype=torch.int)
+            actions_tensor = torch.tensor(actions, dtype=torch.long) #torch long as for indizes
             rewards_tensor = torch.tensor(rewards, dtype=torch.float32)
             next_obersvation_tensor = torch.tensor(next_observations, dtype=torch.float32)
-            terminations_tensor = torch.tensor(terminations, dtype=torch.float32)
+            terminationed_games_tensor = torch.tensor(terminations, dtype=torch.float32)
 
             #get q values
-            q_values = self.q_net(last_observations) #q values of board before action was played for all batches
-            q_values_played = q_values[range(self.batch_size), actions_tensor]  #extrat only q values played
+            q_values = self.q_net(last_obersvation_tensor) #q values of board before action was played for all batches
+            q_values_played = q_values[range(self.batch_size), actions_tensor]  #extrat only the q value for each action played in each batch
+            with torch.no_grad(): #No graph needed for predicted q values
+                predicted_q_values = self.q_net(next_obersvation_tensor)
+                max_predicted_q_values = predicted_q_values.max(dim=1).values #get max q value for each beach (dim=1 checks all q values in one batch)
+            
+            #Bellman calculation
+            targets = self._calculate_bellman_for_batches(rewards_tensor,max_predicted_q_values, terminationed_games_tensor)
+            
+            #Loss calculation between targets and q_values plaayed
+            loss_object = nn.MSELoss()
+            loss = loss_object(q_values_played,targets)
+
+            #Backpropagation
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+
 
 
     def decay_epsilon(self):
