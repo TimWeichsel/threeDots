@@ -6,7 +6,7 @@ from collections import deque #buffer for action history
 import random
 
 class DQNAgent:
-    def __init__(self, env: gym.Env, learning_rate: float, initial_epsilon: float,epsilon_decay: float,final_epsilon: float, buffer_maxlen:int = 10000, batch_size: int = 32, gamma: float = 0.99):
+    def __init__(self, env: gym.Env, learning_rate: float, initial_epsilon: float, epsilon_decay: float, final_epsilon: float, buffer_maxlen:int = 10000, batch_size: int = 32, gamma: float = 0.99):
         self.env = env
         self.epsilon = initial_epsilon
         self.epsilon_decay = epsilon_decay
@@ -43,8 +43,9 @@ class DQNAgent:
                 q_values = self.q_net(board_tensor)
 
                 #get the highest q value for valid actions
-                valid_actions_np = np.array(valid_actions) #get valid indizes as numpy array since pytorch doesn't support python list
-                valid_q_values = q_values[valid_actions_np] #filter q values with valid action 
+                valid_actions_np = np.array(valid_actions, dtype=np.int64) #get valid indizes as numpy array since pytorch doesn't support python list
+                valid_actions_tensor = torch.tensor(valid_actions_np, dtype=torch.long)
+                valid_q_values = q_values[valid_actions_tensor] #filter q values with valid action 
                 best_q_index = valid_q_values.argmax().item() #get highest q value for a valid avtion as index (with item())
                 return valid_actions[best_q_index] #return valid action with highest q value
 

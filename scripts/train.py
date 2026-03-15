@@ -1,8 +1,11 @@
 from threedots.env import MyEnv
 from threedots.agents.randomAgent import RandomAgent
+from threedots.agents.DQNAgent import DQNAgent
 import gymnasium as gym 
 import numpy as np
 import argparse
+import torch
+import os
 
 
 parser = argparse.ArgumentParser()
@@ -13,7 +16,12 @@ episodes = args.episodes
 obstacle_num = args.obstacle_num
 
 env = MyEnv(obstacle_num=obstacle_num)
-agent1 = RandomAgent(env)
+agent1 = DQNAgent(env, learning_rate=0.001, initial_epsilon=1.0, 
+                  epsilon_decay=0.001, final_epsilon=0.05)
+if os.path.exists("dqn_agent1.pth"): #continue training the old agent
+    saved_agent = torch.load("dqn_agent1.pth")
+    agent1.q_net.load_state_dict(saved_agent["q_net"])
+    agent1.epsilon = saved_agent["epsilon"]
 agent2 = RandomAgent(env) #agent -1 is agent2 
 terminated = False
 
@@ -44,7 +52,8 @@ for episode in range(episodes):
             
             #Update Agent
             if prev_reward[current_agent_info] is not None:
-                current_agent.update(observation, prev_action[current_agent_info], prev_reward[current_agent_info], terminated, prev_info[current_agent_info])
+                opponent_reward = prev_reward[-current_agent_info] or 0
+                current_agent.update(observation, prev_action[current_agent_info], prev_reward[current_agent_info] - opponent_reward, terminated, prev_info[current_agent_info])
 
             #Get Action
             current_action = current_agent.act(observation, info)
@@ -85,7 +94,8 @@ for episode in range(episodes):
     if winner == 0:  # Draw
         agent1.update(observation, prev_action[1], prev_reward[1], terminated, prev_info[1])
         agent2.update(observation, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
-    print(f"Final score: {score}, Winner: {winner}")     
+    print(f"Final score: {score}, Winner: {winner}")
+    agent1.decay_epsilon()
     
                 
-    
+torch.save({"q_net":agent1.q_net.state_dict(), "epsilon": agent1.epsilon},"dqn_agent1.pth")
