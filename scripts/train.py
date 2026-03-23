@@ -7,95 +7,140 @@ import argparse
 import torch
 import os
 
+#trained 120000 on 5 obstacles and started the game
+#trained 10000 on 7 obstacles and played the game as agent2
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--episodes", type=int, default=1000)
-parser.add_argument("--obstacle_num", type=int, default=5)
-args = parser.parse_args()
-episodes = args.episodes
-obstacle_num = args.obstacle_num
+def switch_player_perspective(observation):
+    switched_obs = observation.copy()
+    switched_obs[observation == -1] = 1
+    switched_obs[observation == 1] = -1
+    return switched_obs
 
-env = MyEnv(obstacle_num=obstacle_num)
-agent1 = DQNAgent(env, learning_rate=0.001, initial_epsilon=1.0, 
-                  epsilon_decay=0.001, final_epsilon=0.05)
-if os.path.exists("dqn_agent1.pth"): #continue training the old agent
-    saved_agent = torch.load("dqn_agent1.pth")
-    agent1.q_net.load_state_dict(saved_agent["q_net"])
-    agent1.epsilon = saved_agent["epsilon"]
-agent2 = RandomAgent(env) #agent -1 is agent2 
-terminated = False
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--episodes", type=int, default=1000)
+    parser.add_argument("--obstacle_num", type=int, default=5)
+    parser.add_argument("--agent_player", type=int, default=1, choices=[1,2])
+    parser.add_argument("--learning_rate", type=float, default=0.001)
+    parser.add_argument("--initial_epsilon", type=float, default=1.0)
+    parser.add_argument("--epsilon_decay", type=float, default=0.001)
+    parser.add_argument("--final_epsilon", type=float, default=0.05)
+    args = parser.parse_args()
+    episodes = args.episodes
+    obstacle_num = args.obstacle_num
 
-for episode in range(episodes):
-    terminated = False
-    prev_reward = {-1: None, 1: None}
-    prev_action = {-1: None, 1: None}
-    prev_info = {-1: None, 1: None}
-    prev_agent = None
-    print(f"!!!!EPISODE {episode+1} of {episodes}!!!!")
-    observation, info = env.reset()
-    print(f"Start Playfield:")
-    env.render()
-    print()
-    for step in range(36-obstacle_num):
-        print()
-        print(f"Step {step}:")
-        
-        if not terminated:
-            
-            current_agent_info = info["current_player"]
-            if current_agent_info == 1:
-                current_agent = agent1
-            elif current_agent_info == -1:
-                current_agent = agent2
-            else:
-                raise ValueError("Invalid player ID!")
-            
-            #Update Agent
-            if prev_reward[current_agent_info] is not None:
-                opponent_reward = prev_reward[-current_agent_info] or 0
-                current_agent.update(observation, prev_action[current_agent_info], prev_reward[current_agent_info] - opponent_reward, terminated, prev_info[current_agent_info])
+    #initialize environment
+    env = MyEnv(obstacle_num=obstacle_num)
 
-            #Get Action
-            current_action = current_agent.act(observation, info)
-            prev_action[current_agent_info] = current_action
-            print(f"- Agent{current_agent_info} to move: {current_action}")
-
-            #Perform Action and get reward + observation
-            observation, reward, terminated, truncated, info = env.step(current_action)
-            prev_reward[current_agent_info] = reward
-            prev_info[current_agent_info] = info
-            
-            print(f"- Reward: {reward}")
-            print(f"- Terminated: {terminated}")
-            
-            score = info["current_score"]
-            print(f"score: {score}")
-            env.render()
-            print()
-            prev_agent = current_agent_info
-
-
-    print("")
-    score = info["current_score"]
-    winner = 1 if score["1"] > score["-1"] else -1 if score["-1"] > score["1"] else 0
-
-    if prev_agent == 1 and winner == 1:
-        agent1.update(observation, prev_action[1], prev_reward[1], terminated, prev_info[1])
-        agent2.update(observation, prev_action[-1], prev_reward[-1]-100, terminated, prev_info[-1]) #agent2 looses
-    if prev_agent == 1 and winner == -1:
-        agent1.update(observation, prev_action[1], prev_reward[1], terminated, prev_info[1])
-        agent2.update(observation, prev_action[-1], prev_reward[-1]+100, terminated, prev_info[-1]) #agent2 wins
-    if prev_agent == -1 and winner == 1:
-        agent1.update(observation, prev_action[1], prev_reward[1]+100, terminated, prev_info[1]) #agent1 wins
-        agent2.update(observation, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
-    if prev_agent == -1 and winner == -1:
-        agent1.update(observation, prev_action[1], prev_reward[1]-100, terminated, prev_info[1]) #agent1 looses
-        agent2.update(observation, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
-    if winner == 0:  # Draw
-        agent1.update(observation, prev_action[1], prev_reward[1], terminated, prev_info[1])
-        agent2.update(observation, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
-    print(f"Final score: {score}, Winner: {winner}")
-    agent1.decay_epsilon()
+    #Determine which player the agent is
     
+    match args.agent_player:
+        case 1:
+            player1 = DQNAgent(env, learning_rate=args.learning_rate, initial_epsilon=args.initial_epsilon, 
+                            epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon) #DQN Agent is player 1
+            if os.path.exists("dqn_agent1.pth"): #continue training the old agent
+                saved_agent = torch.load("dqn_agent1.pth")
+                player1.q_net.load_state_dict(saved_agent["q_net"])
+                player1.epsilon = saved_agent["epsilon"]
+            player2 = RandomAgent(env) #Random Agent is player 2
+        case 2:
+            player2 = DQNAgent(env, learning_rate=args.learning_rate, initial_epsilon=args.initial_epsilon, 
+                            epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon) #DQN Agent is player 2
+            if os.path.exists("dqn_agent1.pth"): #continue training the old agent
+                saved_agent = torch.load("dqn_agent1.pth")
+                player2.q_net.load_state_dict(saved_agent["q_net"])
+                player2.epsilon = saved_agent["epsilon"]
+            player1 = RandomAgent(env) #Random Agent is player 1
+        case _:
+            raise ValueError("Agent can only be player 1 or 2")
+    dqn_agent = player1 if args.agent_player == 1 else player2   
+
+
+    terminated = False
+
+
+    # Start Episode Training
+    for episode in range(episodes):
+        terminated = False
+        prev_reward = {-1: None, 1: None}
+        prev_action = {-1: None, 1: None}
+        prev_info = {-1: None, 1: None}
+        prev_agent = None
+        print(f"!!!!EPISODE {episode+1} of {episodes}!!!!")
+        observation, info = env.reset()
+        print(f"Start Playfield:")
+        env.render()
+        print()
+
+        for step in range(36-obstacle_num):
+            print()
+            print(f"Step {step}:")
+            
+            if not terminated:
                 
-torch.save({"q_net":agent1.q_net.state_dict(), "epsilon": agent1.epsilon},"dqn_agent1.pth")
+                current_agent_info = info["current_player"]
+                if current_agent_info == 1:
+                    current_agent = player1
+                elif current_agent_info == -1:
+                    current_agent = player2
+                else:
+                    raise ValueError("Invalid player ID!")
+                
+                #determine agent observation (with considering which player it is)
+                obs_for_agent = switch_player_perspective(observation) if current_agent_info == -1 else observation
+                
+                #Update Agent
+                if prev_reward[current_agent_info] is not None:
+                    opponent_reward = prev_reward[-current_agent_info] or 0
+                    current_agent.update(obs_for_agent, prev_action[current_agent_info], prev_reward[current_agent_info] - opponent_reward, terminated, prev_info[current_agent_info])
+
+                #Get Action
+                current_action = current_agent.act(obs_for_agent, info)
+                prev_action[current_agent_info] = current_action
+                print(f"- Agent{current_agent_info} to move: {current_action}")
+
+                #Perform Action and get reward + observation
+                observation, reward, terminated, truncated, info = env.step(current_action)
+                prev_reward[current_agent_info] = reward
+                prev_info[current_agent_info] = info
+                
+                print(f"- Reward: {reward}")
+                print(f"- Terminated: {terminated}")
+                
+                score = info["current_score"]
+                print(f"score: {score}")
+                env.render()
+                print()
+                prev_agent = current_agent_info
+
+
+        print("")
+        score = info["current_score"]
+        winner = 1 if score["1"] > score["-1"] else -1 if score["-1"] > score["1"] else 0
+
+        obs_for_player_1 = observation #gets the non flipped version
+        obs_for_player_2 = switch_player_perspective(observation)
+
+        if prev_agent == 1 and winner == 1:
+            player1.update(obs_for_player_1, prev_action[1], prev_reward[1], terminated, prev_info[1])
+            player2.update(obs_for_player_2, prev_action[-1], prev_reward[-1]-100, terminated, prev_info[-1]) #agent2 looses
+        if prev_agent == 1 and winner == -1:
+            player1.update(obs_for_player_1, prev_action[1], prev_reward[1], terminated, prev_info[1])
+            player2.update(obs_for_player_2, prev_action[-1], prev_reward[-1]+100, terminated, prev_info[-1]) #agent2 wins
+        if prev_agent == -1 and winner == 1:
+            player1.update(obs_for_player_1, prev_action[1], prev_reward[1]+100, terminated, prev_info[1]) #agent1 wins
+            player2.update(obs_for_player_2, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
+        if prev_agent == -1 and winner == -1:
+            player1.update(obs_for_player_1, prev_action[1], prev_reward[1]-100, terminated, prev_info[1]) #agent1 looses
+            player2.update(obs_for_player_2, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
+        if winner == 0:  # Draw
+            player1.update(obs_for_player_1, prev_action[1], prev_reward[1], terminated, prev_info[1])
+            player2.update(obs_for_player_2, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
+        print(f"Final score: {score}, Winner: {winner}")
+
+        dqn_agent.decay_epsilon()
+        
+    torch.save({"q_net":dqn_agent.q_net.state_dict(), "epsilon": dqn_agent.epsilon},"dqn_agent1.pth")
+
+if __name__ == "__main__":
+    main()

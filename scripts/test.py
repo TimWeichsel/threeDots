@@ -5,7 +5,7 @@ import torch
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--episodes", type=int, default=100)
+parser.add_argument("--episodes", type=int, default=10000)
 parser.add_argument("--obstacle_num", type=int, default=5)
 args = parser.parse_args()
 
