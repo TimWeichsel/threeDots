@@ -25,7 +25,19 @@ class DQNAgent:
             nn.ReLU(),
             nn.Linear(128, 36),
         )
+
         self.optimizer = torch.optim.Adam(self.q_net.parameters(), lr=learning_rate)
+
+        #Target Net for max Q-Value in Bellman calculation (predicted q values)
+        self.target_net = nn.Sequential(
+            nn.Linear(36, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, 36),
+        )
+        self.target_net.load_state_dict(self.q_net.state_dict())
+        self.target_update_counter = 0
 
 
     def act(self, observation: np.ndarray, info: dict) -> int:
@@ -69,18 +81,18 @@ class DQNAgent:
             next_observations = np.array(next_observations_array_tuple)
 
             #convert to tensors
-            last_obersvation_tensor = torch.tensor(last_observations, dtype=torch.float32)
+            last_observation_tensor = torch.tensor(last_observations, dtype=torch.float32)
             actions_tensor = torch.tensor(actions, dtype=torch.long) #torch long as for indizes
             rewards_tensor = torch.tensor(rewards, dtype=torch.float32)
-            next_obersvation_tensor = torch.tensor(next_observations, dtype=torch.float32)
+            next_observation_tensor = torch.tensor(next_observations, dtype=torch.float32)
             terminationed_games_tensor = torch.tensor(terminations, dtype=torch.float32)
 
             #get q values
-            q_values = self.q_net(last_obersvation_tensor) #q values of board before action was played for all batches
+            q_values = self.q_net(last_observation_tensor) #q values of board before action was played for all batches
             q_values_played = q_values[range(self.batch_size), actions_tensor]  #extrat only the q value for each action played in each batch
             with torch.no_grad(): #No graph needed for predicted q values
-                predicted_q_values = self.q_net(next_obersvation_tensor)
-                max_predicted_q_values = predicted_q_values.max(dim=1).values #get max q value for each beach (dim=1 checks all q values in one batch)
+                predicted_q_values = self.target_net(next_observation_tensor)
+                max_predicted_q_values = predicted_q_values.max(dim=1).values #get max q value for each batch (dim=1 checks all q values in one batch)
             
             #Bellman calculation
             targets = self._calculate_bellman_for_batches(rewards_tensor,max_predicted_q_values, terminationed_games_tensor)
@@ -93,6 +105,9 @@ class DQNAgent:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+            self.target_update_counter +=1
+            if self.target_update_counter % 1000 == 0:
+                self.target_net.load_state_dict(self.q_net.state_dict())
 
 
 

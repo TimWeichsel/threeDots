@@ -7,6 +7,8 @@ import argparse
 import torch
 import os
 
+#Archtitecture: https://www.youtube.com/watch?v=s7KQoE7ZqEg
+
 #trained 120000 on 5 obstacles and started the game
 #trained 10000 on 7 obstacles and played the game as agent2
 #trained 20000 on 6 obstacles and played the game as agent2
@@ -43,7 +45,8 @@ def main():
                             epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon) #DQN Agent is player 1
             if os.path.exists("dqn_agent1.pth"): #continue training the old agent
                 saved_agent = torch.load("dqn_agent1.pth")
-                player1.q_net.load_state_dict(saved_agent["q_net"])
+                player1.q_net.load_state_dict(saved_agent["q_net"]) #Load q_net
+                player1.target_net.load_state_dict(saved_agent["q_net"]) #Update target net
                 player1.epsilon = saved_agent["epsilon"]
             if args.opponent == "current_agent":
                 pass
@@ -54,7 +57,8 @@ def main():
                             epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon) #DQN Agent is player 2
             if os.path.exists("dqn_agent1.pth"): #continue training the old agent
                 saved_agent = torch.load("dqn_agent1.pth")
-                player2.q_net.load_state_dict(saved_agent["q_net"])
+                player2.q_net.load_state_dict(saved_agent["q_net"]) #Load q_net
+                player2.target_net.load_state_dict(saved_agent["q_net"]) #Update target net
                 player2.epsilon = saved_agent["epsilon"]
             if args.opponent == "current_agent":
                 pass
