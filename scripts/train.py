@@ -9,6 +9,8 @@ import os
 
 #trained 120000 on 5 obstacles and started the game
 #trained 10000 on 7 obstacles and played the game as agent2
+#trained 20000 on 6 obstacles and played the game as agent2
+#trained 200000 on 5 obstacles and played the game as agent2
 
 def switch_player_perspective(observation):
     switched_obs = observation.copy()
@@ -25,6 +27,7 @@ def main():
     parser.add_argument("--initial_epsilon", type=float, default=1.0)
     parser.add_argument("--epsilon_decay", type=float, default=0.001)
     parser.add_argument("--final_epsilon", type=float, default=0.05)
+    parser.add_argument("--opponent", type=str, choices=["random","current_agent"], default="random")
     args = parser.parse_args()
     episodes = args.episodes
     obstacle_num = args.obstacle_num
@@ -42,7 +45,10 @@ def main():
                 saved_agent = torch.load("dqn_agent1.pth")
                 player1.q_net.load_state_dict(saved_agent["q_net"])
                 player1.epsilon = saved_agent["epsilon"]
-            player2 = RandomAgent(env) #Random Agent is player 2
+            if args.opponent == "current_agent":
+                pass
+            else:
+                player2 = RandomAgent(env) #Random Agent is player 2
         case 2:
             player2 = DQNAgent(env, learning_rate=args.learning_rate, initial_epsilon=args.initial_epsilon, 
                             epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon) #DQN Agent is player 2
@@ -50,7 +56,10 @@ def main():
                 saved_agent = torch.load("dqn_agent1.pth")
                 player2.q_net.load_state_dict(saved_agent["q_net"])
                 player2.epsilon = saved_agent["epsilon"]
-            player1 = RandomAgent(env) #Random Agent is player 1
+            if args.opponent == "current_agent":
+                pass
+            else:
+                player1 = RandomAgent(env) #Random Agent is player 1
         case _:
             raise ValueError("Agent can only be player 1 or 2")
     dqn_agent = player1 if args.agent_player == 1 else player2   
