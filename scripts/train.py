@@ -13,6 +13,7 @@ import os
 #trained 10000 on 7 obstacles and played the game as agent2
 #trained 20000 on 6 obstacles and played the game as agent2
 #trained 200000 on 5 obstacles and played the game as agent2
+#trained 20000 on 6 obstacles and started the game
 
 def switch_player_perspective(observation):
     switched_obs = observation.copy()
