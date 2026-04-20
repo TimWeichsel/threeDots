@@ -30,7 +30,7 @@ def main():
     parser.add_argument("--initial_epsilon", type=float, default=1.0)
     parser.add_argument("--epsilon_decay", type=float, default=0.001)
     parser.add_argument("--final_epsilon", type=float, default=0.05)
-    parser.add_argument("--opponent", type=str, choices=["random","current_agent"], default="random")
+    parser.add_argument("--self_play", action="store_true")
     args = parser.parse_args()
     episodes = args.episodes
     obstacle_num = args.obstacle_num
@@ -39,7 +39,6 @@ def main():
     env = MyEnv(obstacle_num=obstacle_num)
 
     #Determine which player the agent is
-    
     match args.agent_player:
         case 1:
             player1 = DQNAgent(env, learning_rate=args.learning_rate, initial_epsilon=args.initial_epsilon, 
@@ -49,8 +48,12 @@ def main():
                 player1.q_net.load_state_dict(saved_agent["q_net"]) #Load q_net
                 player1.target_net.load_state_dict(saved_agent["q_net"]) #Update target net
                 player1.epsilon = saved_agent["epsilon"]
-            if args.opponent == "current_agent":
-                pass
+            if args.self_play:
+                player2 = DQNAgent(env, learning_rate=args.learning_rate, initial_epsilon=args.initial_epsilon, 
+                            epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon) 
+                player2.q_net.load_state_dict(saved_agent["q_net"]) #Load q_net
+                player2.target_net.load_state_dict(saved_agent["q_net"]) #Update target net
+                player2.epsilon = 0.0 #No epsilon for frozen opponent
             else:
                 player2 = RandomAgent(env) #Random Agent is player 2
         case 2:
@@ -61,8 +64,12 @@ def main():
                 player2.q_net.load_state_dict(saved_agent["q_net"]) #Load q_net
                 player2.target_net.load_state_dict(saved_agent["q_net"]) #Update target net
                 player2.epsilon = saved_agent["epsilon"]
-            if args.opponent == "current_agent":
-                pass
+            if args.self_play:
+                player1 = DQNAgent(env, learning_rate=args.learning_rate, initial_epsilon=args.initial_epsilon, 
+                            epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon) 
+                player1.q_net.load_state_dict(saved_agent["q_net"]) #Load q_net
+                player1.target_net.load_state_dict(saved_agent["q_net"]) #Update target net
+                player1.epsilon = 0.0 #No epsilon for frozen opponent
             else:
                 player1 = RandomAgent(env) #Random Agent is player 1
         case _:
@@ -91,32 +98,34 @@ def main():
             print(f"Step {step}:")
             
             if not terminated:
-                
-                current_agent_info = info["current_player"]
-                if current_agent_info == 1:
+                current_agent_indicator = info["current_player"]
+                if current_agent_indicator == 1:
                     current_agent = player1
-                elif current_agent_info == -1:
+                elif current_agent_indicator == -1:
                     current_agent = player2
                 else:
                     raise ValueError("Invalid player ID!")
                 
                 #determine agent observation (with considering which player it is)
-                obs_for_agent = switch_player_perspective(observation) if current_agent_info == -1 else observation
+                obs_for_agent = switch_player_perspective(observation) if current_agent_indicator == -1 else observation
                 
-                #Update Agent
-                if prev_reward[current_agent_info] is not None:
-                    opponent_reward = prev_reward[-current_agent_info] or 0
-                    current_agent.update(obs_for_agent, prev_action[current_agent_info], prev_reward[current_agent_info] - opponent_reward, terminated, prev_info[current_agent_info])
+                #Update Agent and handle self play
+                if prev_reward[current_agent_indicator] is not None: #No update for first step since no action has been performed yet
+                    opponent_reward = prev_reward[-current_agent_indicator] or 0
+                    if current_agent is not dqn_agent and args.self_play: #No updated when opponent in selfplay
+                        pass #skipt the frozen opponent
+                    else: #all other cases an update is needed
+                        current_agent.update(obs_for_agent, prev_action[current_agent_indicator], prev_reward[current_agent_indicator] - opponent_reward, terminated, prev_info[current_agent_indicator])
 
                 #Get Action
                 current_action = current_agent.act(obs_for_agent, info)
-                prev_action[current_agent_info] = current_action
-                print(f"- Agent{current_agent_info} to move: {current_action}")
+                prev_action[current_agent_indicator] = current_action
+                print(f"- Agent{current_agent_indicator} to move: {current_action}")
 
                 #Perform Action and get reward + observation
                 observation, reward, terminated, truncated, info = env.step(current_action)
-                prev_reward[current_agent_info] = reward
-                prev_info[current_agent_info] = info
+                prev_reward[current_agent_indicator] = reward
+                prev_info[current_agent_indicator] = info
                 
                 print(f"- Reward: {reward}")
                 print(f"- Terminated: {terminated}")
@@ -125,31 +134,38 @@ def main():
                 print(f"score: {score}")
                 env.render()
                 print()
-                prev_agent = current_agent_info
-
+                prev_agent = current_agent_indicator
 
         print("")
+
+        #Determine winner and rewards (env already gives winner/looser reward to last player playing the game!)
+        ## determine winner of the game
         score = info["current_score"]
         winner = 1 if score["1"] > score["-1"] else -1 if score["-1"] > score["1"] else 0
 
-        obs_for_player_1 = observation #gets the non flipped version
-        obs_for_player_2 = switch_player_perspective(observation)
+        ## winner/looser reward for second last player playing the game
+        if prev_agent == 1:
+            win_reward_p1 = prev_reward[1] #prev_reward already contains the reward for winning/loosing the game for player 1
+            win_reward_p2 = prev_reward[-1] + (100 if winner == -1 else -100 if winner == 1 else 0)
+        elif prev_agent == -1:
+            win_reward_p2 = prev_reward[-1] #prev_reward already contains the reward for winning/loosing the game for player 2
+            win_reward_p1 = prev_reward[1] + (100 if winner == 1 else -100 if winner == -1 else 0)
 
-        if prev_agent == 1 and winner == 1:
-            player1.update(obs_for_player_1, prev_action[1], prev_reward[1], terminated, prev_info[1])
-            player2.update(obs_for_player_2, prev_action[-1], prev_reward[-1]-100, terminated, prev_info[-1]) #agent2 looses
-        if prev_agent == 1 and winner == -1:
-            player1.update(obs_for_player_1, prev_action[1], prev_reward[1], terminated, prev_info[1])
-            player2.update(obs_for_player_2, prev_action[-1], prev_reward[-1]+100, terminated, prev_info[-1]) #agent2 wins
-        if prev_agent == -1 and winner == 1:
-            player1.update(obs_for_player_1, prev_action[1], prev_reward[1]+100, terminated, prev_info[1]) #agent1 wins
-            player2.update(obs_for_player_2, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
-        if prev_agent == -1 and winner == -1:
-            player1.update(obs_for_player_1, prev_action[1], prev_reward[1]-100, terminated, prev_info[1]) #agent1 looses
-            player2.update(obs_for_player_2, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
-        if winner == 0:  # Draw
-            player1.update(obs_for_player_1, prev_action[1], prev_reward[1], terminated, prev_info[1])
-            player2.update(obs_for_player_2, prev_action[-1], prev_reward[-1], terminated, prev_info[-1])
+        # Load the final obervation for both agents
+        obs_for_player_1 = observation #gets the non flipped version
+        obs_for_player_2 = switch_player_perspective(observation) #board needs to be flipped
+
+        # Update the players and check for self play (since no update is needed)
+        if args.self_play:
+            if args.agent_player == 1: #Only update player 1
+                player1.update(obs_for_player_1, prev_action[1], win_reward_p1, terminated, prev_info[1])
+            elif args.agent_player == 2: #Only update player 2
+                player2.update(obs_for_player_2, prev_action[-1], win_reward_p2, terminated, prev_info[-1])
+        
+        else: #Update both agents
+            player1.update(obs_for_player_1, prev_action[1], win_reward_p1, terminated, prev_info[1])
+            player2.update(obs_for_player_2, prev_action[-1], win_reward_p2, terminated, prev_info[-1])
+
         print(f"Final score: {score}, Winner: {winner}")
 
         dqn_agent.decay_epsilon()
