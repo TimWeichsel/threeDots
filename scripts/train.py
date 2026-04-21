@@ -14,6 +14,7 @@ import os
 #trained 20000 on 6 obstacles and played the game as agent2
 #trained 200000 on 5 obstacles and played the game as agent2
 #trained 20000 on 6 obstacles and started the game
+#trained partly 1000000 on 5 obstacles and played the game as agent2
 
 def switch_player_perspective(observation):
     switched_obs = observation.copy()
@@ -31,6 +32,7 @@ def main():
     parser.add_argument("--epsilon_decay", type=float, default=0.001)
     parser.add_argument("--final_epsilon", type=float, default=0.05)
     parser.add_argument("--self_play", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
     episodes = args.episodes
     obstacle_num = args.obstacle_num
@@ -78,24 +80,30 @@ def main():
 
 
     terminated = False
-
-
+    player1_wins = 0
+    player2_wins = 0
+    draws = 0
     # Start Episode Training
     for episode in range(episodes):
+        
         terminated = False
         prev_reward = {-1: None, 1: None}
         prev_action = {-1: None, 1: None}
         prev_info = {-1: None, 1: None}
         prev_agent = None
-        print(f"!!!!EPISODE {episode+1} of {episodes}!!!!")
+       
         observation, info = env.reset()
-        print(f"Start Playfield:")
-        env.render()
-        print()
+        if args.verbose:
+            print(f"!!!!EPISODE {episode+1} of {episodes}!!!!")
+            print(f"Start Playfield:")
+            print()
+            env.render()
+        
 
         for step in range(36-obstacle_num):
-            print()
-            print(f"Step {step}:")
+            if args.verbose:
+                print()
+                print(f"Step {step}:")
             
             if not terminated:
                 current_agent_indicator = info["current_player"]
@@ -120,23 +128,23 @@ def main():
                 #Get Action
                 current_action = current_agent.act(obs_for_agent, info)
                 prev_action[current_agent_indicator] = current_action
-                print(f"- Agent{current_agent_indicator} to move: {current_action}")
+                
 
                 #Perform Action and get reward + observation
                 observation, reward, terminated, truncated, info = env.step(current_action)
                 prev_reward[current_agent_indicator] = reward
                 prev_info[current_agent_indicator] = info
-                
-                print(f"- Reward: {reward}")
-                print(f"- Terminated: {terminated}")
-                
                 score = info["current_score"]
-                print(f"score: {score}")
-                env.render()
-                print()
+                if args.verbose:
+                    print(f"- Agent{current_agent_indicator} to move: {current_action}")
+                    print(f"- Reward: {reward}")
+                    print(f"- Terminated: {terminated}")
+                    print(f"score: {score}")
+                    env.render()
+                    print()
                 prev_agent = current_agent_indicator
-
-        print("")
+        if args.verbose:
+            print("")
 
         #Determine winner and rewards (env already gives winner/looser reward to last player playing the game!)
         ## determine winner of the game
@@ -165,12 +173,23 @@ def main():
         else: #Update both agents
             player1.update(obs_for_player_1, prev_action[1], win_reward_p1, terminated, prev_info[1])
             player2.update(obs_for_player_2, prev_action[-1], win_reward_p2, terminated, prev_info[-1])
-
+        
         print(f"Final score: {score}, Winner: {winner}")
+        if winner == 1: player1_wins += 1
+        elif winner == -1: player2_wins += 1
+        else: draws += 1
 
         dqn_agent.decay_epsilon()
         
     torch.save({"q_net":dqn_agent.q_net.state_dict(), "epsilon": dqn_agent.epsilon},"dqn_agent1.pth")
+    if args.agent_player == 1:
+        print(f"Player 1 (DQN Agent) wins: {player1_wins} ({player1_wins/episodes*100:.1f}%)")
+        print(f"Player 2 wins: {player2_wins} ({player2_wins/episodes*100:.1f}%)")
+        print(f"Draws: {draws} ({draws/episodes*100:.1f}%)")
+    else:
+        print(f"Player 2 (DQN Agent) wins: {player2_wins} ({player2_wins/episodes*100:.1f}%)")
+        print(f"Player 1 wins: {player1_wins} ({player1_wins/episodes*100:.1f}%)")
+        print(f"Draws: {draws} ({draws/episodes*100:.1f}%)")
 
 if __name__ == "__main__":
     main()

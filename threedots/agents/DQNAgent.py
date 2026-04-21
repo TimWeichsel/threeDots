@@ -6,7 +6,7 @@ from collections import deque #buffer for action history
 import random
 
 class DQNAgent:
-    def __init__(self, env: gym.Env, learning_rate: float, initial_epsilon: float, epsilon_decay: float, final_epsilon: float, buffer_maxlen:int = 10000, batch_size: int = 32, gamma: float = 0.99):
+    def __init__(self, env: gym.Env, learning_rate: float, initial_epsilon: float, epsilon_decay: float, final_epsilon: float, buffer_maxlen:int = 50000, batch_size: int = 32, gamma: float = 0.99):
         self.env = env
         self.epsilon = initial_epsilon
         self.epsilon_decay = epsilon_decay
