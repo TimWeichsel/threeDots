@@ -15,6 +15,7 @@ import os
 #trained 200000 on 5 obstacles and played the game as agent2
 #trained 20000 on 6 obstacles and started the game
 #trained partly 1000000 on 5 obstacles and played the game as agent2
+#trained partly 1000000 on 5 obstacles and played the game as agent1
 
 def switch_player_perspective(observation):
     switched_obs = observation.copy()
@@ -26,12 +27,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--episodes", type=int, default=1000)
     parser.add_argument("--obstacle_num", type=int, default=5)
-    parser.add_argument("--agent_player", type=int, default=1, choices=[1,2])
+    parser.add_argument("--agent_player", type=int, default=1, choices=[1,2,3]) #3 is changing between player 1 and 2
     parser.add_argument("--learning_rate", type=float, default=0.001)
     parser.add_argument("--initial_epsilon", type=float, default=1.0)
     parser.add_argument("--epsilon_decay", type=float, default=0.001)
     parser.add_argument("--final_epsilon", type=float, default=0.05)
     parser.add_argument("--self_play", action="store_true")
+    parser.add_argument("--switch_interval", type=int, default=500)
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
     episodes = args.episodes
@@ -54,7 +56,6 @@ def main():
                 player2 = DQNAgent(env, learning_rate=args.learning_rate, initial_epsilon=args.initial_epsilon, 
                             epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon) 
                 player2.q_net.load_state_dict(saved_agent["q_net"]) #Load q_net
-                player2.target_net.load_state_dict(saved_agent["q_net"]) #Update target net
                 player2.epsilon = 0.0 #No epsilon for frozen opponent
             else:
                 player2 = RandomAgent(env) #Random Agent is player 2
@@ -70,13 +71,28 @@ def main():
                 player1 = DQNAgent(env, learning_rate=args.learning_rate, initial_epsilon=args.initial_epsilon, 
                             epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon) 
                 player1.q_net.load_state_dict(saved_agent["q_net"]) #Load q_net
-                player1.target_net.load_state_dict(saved_agent["q_net"]) #Update target net
                 player1.epsilon = 0.0 #No epsilon for frozen opponent
             else:
                 player1 = RandomAgent(env) #Random Agent is player 1
+        case 3: # alternating between player 1 and 2 every switch_interval episodes
+            player1 = DQNAgent(env, learning_rate=args.learning_rate, initial_epsilon=args.initial_epsilon,
+                            epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon)
+            if os.path.exists("dqn_agent1.pth"):
+                saved_agent = torch.load("dqn_agent1.pth")
+                player1.q_net.load_state_dict(saved_agent["q_net"])
+                player1.target_net.load_state_dict(saved_agent["q_net"])
+                player1.epsilon = saved_agent["epsilon"]
+            if args.self_play:
+                player2 = DQNAgent(env, learning_rate=args.learning_rate, initial_epsilon=args.initial_epsilon,
+                            epsilon_decay=args.epsilon_decay, final_epsilon=args.final_epsilon)
+                player2.q_net.load_state_dict(saved_agent["q_net"])
+                player2.epsilon = 0.0
+            else:
+                player2 = RandomAgent(env)
         case _:
-            raise ValueError("Agent can only be player 1 or 2")
-    dqn_agent = player1 if args.agent_player == 1 else player2   
+            raise ValueError("Agent can only be player 1, 2, or 3(= switching between player 1 and 2)")
+    dqn_agent = player1 if args.agent_player in [1, 3] else player2
+    current_role = 2 if args.agent_player == 2 else 1
 
 
     terminated = False
@@ -85,7 +101,12 @@ def main():
     draws = 0
     # Start Episode Training
     for episode in range(episodes):
-        
+        if args.agent_player == 3 and episode > 0 and episode % args.switch_interval == 0:
+            current_role = 3 - current_role  # 1 → 2, 2 → 1
+            player1, player2 = player2, player1
+            dqn_agent = player1 if current_role == 1 else player2
+            print(f"DQN is now player {current_role}")
+
         terminated = False
         prev_reward = {-1: None, 1: None}
         prev_action = {-1: None, 1: None}
@@ -121,7 +142,7 @@ def main():
                 if prev_reward[current_agent_indicator] is not None: #No update for first step since no action has been performed yet
                     opponent_reward = prev_reward[-current_agent_indicator] or 0
                     if current_agent is not dqn_agent and args.self_play: #No updated when opponent in selfplay
-                        pass #skipt the frozen opponent
+                        pass #skip the frozen opponent
                     else: #all other cases an update is needed
                         current_agent.update(obs_for_agent, prev_action[current_agent_indicator], prev_reward[current_agent_indicator] - opponent_reward, terminated, prev_info[current_agent_indicator])
 
@@ -165,9 +186,9 @@ def main():
 
         # Update the players and check for self play (since no update is needed)
         if args.self_play:
-            if args.agent_player == 1: #Only update player 1
+            if current_role == 1: #Only update player 1
                 player1.update(obs_for_player_1, prev_action[1], win_reward_p1, terminated, prev_info[1])
-            elif args.agent_player == 2: #Only update player 2
+            elif current_role == 2: #Only update player 2
                 player2.update(obs_for_player_2, prev_action[-1], win_reward_p2, terminated, prev_info[-1])
         
         else: #Update both agents

@@ -14,7 +14,7 @@ parser.add_argument("--episodes", type=int, default=10000)
 parser.add_argument("--obstacle_num", type=int, default=5)
 parser.add_argument("--agent_player", type=int, default=1, choices=[1, 2])
 parser.add_argument("--verbose", action="store_true")
-args = parser.parse_args()
+args = parser.parse_args() 
 
 env = MyEnv(obstacle_num=args.obstacle_num)
 dqn = DQNAgent(env, learning_rate=0.001, initial_epsilon=0.0,
